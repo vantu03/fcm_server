@@ -85,13 +85,15 @@ def api_save_token():
 def send():
     title = request.form['title']
     body = request.form['body']
-    tokens = [t.token for t in Token.query.all()]
+    tokens = Token.query.all()
 
     if not tokens:
         return 'No tokens found!'
 
     success_count = 0
-    for token in tokens:
+    error_count = 0
+    for t in tokens:
+        token = t.token
         message = messaging.Message(
             notification=messaging.Notification(title=title, body=body),
             token=token,
@@ -100,10 +102,20 @@ def send():
             response = messaging.send(message)
             print("✅ Sent to:", token, "|", response)
             success_count += 1
+        except firebase_admin.exceptions.FirebaseError as e:
+            print("❌ Firebase error to:", token, "|", e)
+            if isinstance(e, messaging.UnregisteredError) or \
+               isinstance(e, messaging.InvalidArgumentError):
+                print("⚠️ Token invalid. Deleting:", token)
+                db.session.delete(t)
+                db.session.commit()
+            error_count += 1
         except Exception as e:
-            print("❌ Failed to send to:", token, "|", e)
+            print("❌ Unknown error to:", token, "|", e)
+            error_count += 1
 
-    return f'Đã gửi thành công {success_count}/{len(tokens)} thông báo!'
+    return f'Đã gửi thành công {success_count}/{len(tokens)} thông báo! ({error_count} lỗi)'
+
 
 if __name__ == '__main__':
     app.run(debug=True)
