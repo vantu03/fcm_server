@@ -9,6 +9,12 @@
 <body class="bg-light">
     <div class="container py-5">
         <h3 class="mb-4"><i class="bi bi-megaphone-fill text-primary"></i> Gửi thông báo</h3>
+        
+        <form method="POST" action="/reset_firebase" onsubmit="return confirm('Bạn chắc chắn muốn xóa cấu hình Firebase hiện tại?');">
+            <button type="submit" class="btn btn-danger mt-3">
+                <i class="bi bi-trash-fill me-1"></i> Xóa cấu hình Firebase
+            </button>
+        </form>
 
         <form id="notify-form" class="row g-3">
             <div class="col-12 col-md-6">
