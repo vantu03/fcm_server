@@ -1,3 +1,46 @@
+# ==== Web framework ====
+Flask
+Flask-SQLAlchemy
+flask-cors
+gunicorn
+
+# ==== Firebase / Cloud ====
+firebase-admin
+python-dotenv
+
+# ==== HTTP / Networking ====
+requests
+urllib3
+idna
+certifi
+charset-normalizer
+
+# ==== Database / MySQL ====
+pymysql
+
+# ==== Data handling ====
+pandas
+numpy
+openpyxl
+xlrd
+python-dateutil
+pytz
+tzdata
+
+# ==== HTML / Parsing ====
+beautifulsoup4
+soupsieve
+lxml
+
+# ==== Utils / Others ====
+typing_extensions
+six
+blinker
+itsdangerous
+Jinja2
+MarkupSafe
+click
+colorama
 Flask
 Flask-SQLAlchemy
 requests

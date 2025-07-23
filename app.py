@@ -1,74 +1,67 @@
+# app.py
 from flask import Flask, request, render_template, jsonify, redirect
-from models import db, Token
-from config import Config
 from flask_cors import CORS
+from models import db, Token, FirebaseCredential
+from config import Config
+from lichICTU import LichSinhVienICTU
 import firebase_admin
 from firebase_admin import credentials, messaging
-import os
-import tempfile
+import json
 
 app = Flask(__name__)
 CORS(app)
 app.config.from_object(Config)
 db.init_app(app)
 
-# Biến trạng thái
-firebase_initialized = False
-firebase_app = None
-firebase_json_path = os.path.join(tempfile.gettempdir(), 'firebase_temp.json')
+firebase_apps = {}
 
-# Khởi tạo database nếu chưa có
 with app.app_context():
     db.create_all()
 
-@app.route('/', methods=['GET', 'POST'])
+def init_firebase_if_needed(server_name):
+    if server_name in firebase_apps:
+        return firebase_apps[server_name]
+
+    cred_obj = FirebaseCredential.query.filter_by(server_name=server_name).first()
+    if not cred_obj:
+        raise Exception(f"Không tìm thấy cấu hình Firebase cho server '{server_name}'")
+
+    try:
+        cred_dict = json.loads(cred_obj.json_data)
+        app_instance = firebase_admin.initialize_app(
+            credentials.Certificate(cred_dict),
+            name=server_name
+        )
+        firebase_apps[server_name] = app_instance
+        return app_instance
+    except Exception as e:
+        raise Exception(f"Lỗi khi khởi tạo Firebase cho server '{server_name}': {e}")
+
+@app.route('/', methods=['GET'])
 def home():
-    global firebase_initialized
-    if not firebase_initialized:
-        return render_template('init_firebase.html')
-
+    firebase_credentials = FirebaseCredential.query.all()
     tokens = [t.token for t in Token.query.all()]
-    return render_template('home.html', tokens=tokens)
+    return render_template('home.html', tokens=tokens, firebase_credentials=firebase_credentials)
 
-@app.route('/init_firebase', methods=['POST'])
-def init_firebase():
-    global firebase_initialized, firebase_app
-
+@app.route('/upload_firebase', methods=['POST'])
+def upload_firebase():
     file = request.files.get('json_file')
-    if not file:
-        return "Thiếu file JSON", 400
+    server_name = request.form.get('server_name')
 
-    # Xóa file cũ nếu có
-    if os.path.exists(firebase_json_path):
-        os.remove(firebase_json_path)
+    if not file or not server_name:
+        return "Thiếu file hoặc tên server", 400
 
-    # Lưu file mới
-    file.save(firebase_json_path)
+    content = file.read().decode('utf-8')
 
-    try:
-        cred = credentials.Certificate(firebase_json_path)
-        firebase_app = firebase_admin.initialize_app(cred)
-        firebase_initialized = True
-        return redirect('/')
-    except Exception as e:
-        return f"Lỗi khi khởi tạo Firebase: {e}", 500
+    existing = FirebaseCredential.query.filter_by(server_name=server_name).first()
+    if existing:
+        existing.json_data = content
+    else:
+        db.session.add(FirebaseCredential(server_name=server_name, json_data=content))
 
-@app.route('/reset_firebase', methods=['POST'])
-def reset_firebase():
-    global firebase_initialized, firebase_app
+    db.session.commit()
+    return jsonify({'success': True})
 
-    try:
-        if firebase_app:
-            firebase_admin.delete_app(firebase_app)
-            firebase_app = None
-
-        if os.path.exists(firebase_json_path):
-            os.remove(firebase_json_path)
-
-        firebase_initialized = False
-        return redirect('/')
-    except Exception as e:
-        return f"Lỗi khi reset Firebase: {e}", 500
 
 @app.route('/api/save_token', methods=['POST'])
 def api_save_token():
@@ -83,10 +76,16 @@ def api_save_token():
 
 @app.route('/send', methods=['POST'])
 def send():
-    title = request.form['title']
-    body = request.form['body']
-    tokens = Token.query.all()
+    server_name = request.form.get('server')
+    title = request.form.get('title')
+    body = request.form.get('body')
 
+    try:
+        app_instance = init_firebase_if_needed(server_name)
+    except Exception as e:
+        return str(e), 500
+
+    tokens = Token.query.all()
     if not tokens:
         return 'No tokens found!'
 
@@ -99,7 +98,7 @@ def send():
             token=token,
         )
         try:
-            response = messaging.send(message)
+            response = messaging.send(message, app=app_instance)
             print("✅ Sent to:", token, "|", response)
             success_count += 1
         except firebase_admin.exceptions.FirebaseError as e:
@@ -114,8 +113,19 @@ def send():
             print("❌ Unknown error to:", token, "|", e)
             error_count += 1
 
-    return f'Đã gửi thành công {success_count}/{len(tokens)} thông báo! ({error_count} lỗi)'
+    return f'\u0110\u00e3 g\u1eedi th\u00e0nh c\u00f4ng {success_count}/{len(tokens)} th\u00f4ng b\u00e1o! ({error_count} l\u1ed7i)'
 
+@app.route('/lichhoc/', methods=['GET'])
+def lichhoc_api():
+    tk = request.args.get('username')
+    mk = request.args.get('password')
+
+    if not tk or not mk:
+        return jsonify({'status': 'error', 'message': 'Thiếu tài khoản hoặc mật khẩu'}), 400
+
+    lich = LichSinhVienICTU(tk, mk)
+    data = lich.get_schedule()
+    return jsonify(data)
 
 if __name__ == '__main__':
     app.run(debug=True)

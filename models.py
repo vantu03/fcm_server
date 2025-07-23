@@ -9,3 +9,8 @@ class Token(db.Model):
 
     def __repr__(self):
         return f"<Token {self.token}>"
+
+class FirebaseCredential(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    server_name = db.Column(db.String(50), unique=True, nullable=False)
+    json_data = db.Column(db.Text, nullable=False)
