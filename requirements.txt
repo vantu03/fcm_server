@@ -4,3 +4,4 @@ requests
 flask-cors
 firebase-admin
 python-dotenv
+gunicorn
