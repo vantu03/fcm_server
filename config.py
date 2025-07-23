@@ -3,5 +3,5 @@ import os
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
-    SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://svprovn_vantu:DvAHy7j6Sfk%40GWw@sv.pro.vn:3306/svprovn_chat'
+    SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://svprovn_vantu:DvAHy7j6Sfk%40GWw@sv.pro.vn:3306/svprovn_svpro'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
